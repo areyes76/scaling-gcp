@@ -1,0 +1,57 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+namespace: @namespace_
+replicaCount: 0
+revisionHistoryLimit: 3
+type: worker
+image:
+  repository: @registry_
+  tag: @tag_
+  pullPolicy: IfNotPresent 
+  resources:
+    requests:
+      cpu: 40m
+      memory: 300Mi
+  readinessProbe: {}
+  # Example (replace readinessProbe: {} with the following):
+  # readinessProbe:
+  #   httpGet:
+  #     path: /ready
+  #     port: 3000
+  #   initialDelaySeconds: 3
+  #   periodSeconds: 5
+  livenessProbe: {}
+  # Example (replace livenessProbe: {} with the following)::
+  # livenessProbe:
+  #   httpGet:
+  #     path: /live
+  #     port: 3000
+  #   initialDelaySeconds: 40
+  #   periodSeconds: 10  
+ingress:
+  enabled: false 
+service:
+  name: node
+  type: ClusterIP
+  servicePort: 3000
+  ingressPath: ingress
+hpa:
+  enabled: false
+  minReplicas: 0
+  maxReplicas: 0
+  metrics:
+    cpu:
+      targetAverageUtilization: 70
+    memory:
+      targetAverageUtilization: 70
+services:
+base:
+  enabled: false
+  replicaCount: 0
+  image:
+    tag : v0.9.9
+  weight: 100
+istio:
+  enabled: false
+  weight: 100
+  

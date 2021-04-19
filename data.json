@@ -1,0 +1,14 @@
+{
+	"tipo":"ms",
+	"descripcion":"cloud-sdk-script-scaled",
+	"deploy": {
+		"namespace": "desa",
+		"cluster": "gke-preprod_us-west2-a_preproduccion",
+		"registry": "us-west2-docker.pkg.dev/preprod"
+	},
+	"owner": {
+		"date": "23-12-2020",
+		"name": "sistemas-pre-productivos",
+		"email": "desa@enterpise.cl"
+	}
+}

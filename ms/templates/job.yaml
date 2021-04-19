@@ -1,0 +1,52 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  generation: 1
+  name: "{{ .Chart.Name }}-job"
+  namespace: {{ .Values.namespace }}
+spec:
+  schedule: "*/1 * * * *"
+  #completions: 1
+  #parallelism: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+           - configMap:
+               defaultMode: 420
+               items:
+               - key: script.sh
+                 path: script.sh
+               name: "{{ .Chart.Name }}-configmaps"
+             name: "{{ .Chart.Name }}-configmaps"
+          containers:
+          - name: "{{  .Chart.Name  }}"
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            volumeMounts:
+            - mountPath: /script.sh
+              name:  "{{ .Chart.Name }}-configmaps"
+              readOnly: true
+              subPath: script.sh
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            ports:
+            - containerPort: {{ .Values.service.servicePort}}
+            resources:
+              requests:
+                cpu: "{{ .Values.image.resources.requests.cpu }}"
+                memory: "{{ .Values.image.resources.requests.memory }}"
+            env:
+              - name: PORT
+                value : "{{ .Values.service.servicePort }}"           
+                {{- range $key, $value := .Values.configmap }}
+              - name: {{ $key }}
+                value : "{{ $value }}"
+                {{- end }}            
+              {{- range $key, $value := $.Values.globalSecrets }}
+              - name: {{ $key }}
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ $value }}
+                    key: {{ $key }}
+              {{- end }}

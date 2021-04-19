@@ -1,0 +1,99 @@
+# ARCHICO ASOCIADO A DESARROLLO
+variables:
+    #CI_DEBUG_TRACE: "true"
+    PROJECT_NAME: $CI_PROJECT_NAME
+    DOCKER_IMAGE: "${REGISTRYDESA}/${NAMESPACE}/${IMAGENAME}_${CI_PROJECT_NAME}_${VERSION}:${CI_PIPELINE_ID}"
+    LINE: "--===========================================================--"
+
+stages:
+      - start
+      - kubernetes
+
+start:
+  stage: start
+  only:
+    - desarrollo-CI
+    - qa-CD  
+  before_script:
+      - echo "start before_script"
+      - echo "export ROLLBACK=False" > rollback
+      - datetime=$(date '+%d-%m-%Y %H:%M:%S')
+      - echo "${datetime}"
+  script:
+      - echo "start script"
+  allow_failure: false
+
+kubernetes:
+  stage: kubernetes
+  only:
+    - desarrollo-CI
+    - qa-CD  
+  before_script:
+    - echo "PASO kubernetes before_script ........................"
+    - echo "VAR CI_COMMIT_SHA => ${CI_COMMIT_SHA}"
+    - echo "VAR REGISTRYDESA => ${REGISTRYDESA}"
+    - NAMESPACE="$(jq '.deploy.namespace' data.json | sed s/" "/_/g | sed s/'"'/''/g )"
+    - echo "VAR NAMESPACE => ${NAMESPACE}"
+    - echo "VAR IMAGENAME => ${IMAGENAME}"
+    - echo "VAR CI_PROJECT_NAME => ${CI_PROJECT_NAME}"
+    - echo "VAR CI_PIPELINE_ID => ${CI_PIPELINE_ID}"
+    - echo "VAR DOCKER_IMAGE => ${DOCKER_IMAGE}"
+    - echo "VAR CI_COMMIT_SHA:0:8 => ${CI_COMMIT_SHA:0:8}"
+    - echo "VAR REGISTRYDOCKER => ${REGISTRYDOCKER}"
+    - JSON_CLUSTER="$(jq '.deploy.cluster' data.json | sed s/" "/_/g | sed s/'"'/''/g )"
+    - mkdir -p logs
+    - whoami      
+    - sed -i 's/name:\ @name_/name:\ '\"${CI_PROJECT_NAME}\"'/g' ms/Chart.yaml
+    - sed -i 's/namespace:\ @namespace_/namespace:\ '\"${NAMESPACE}\"'/g' values.yaml
+    - mv ms/ ${CI_PROJECT_NAME}
+    - cp values.yaml ${CI_PROJECT_NAME}/        
+  script:
+    - echo "kubernetes script ...................................."
+    - kubectl config use-context ${JSON_CLUSTER}
+    - kubectl config view | grep "current-context"
+    - kubectl get nodes
+    - echo "......................................................"
+    - cat ${CI_PROJECT_NAME}/values.yaml
+    - echo "......................................................"
+    # Seccion de docker connect
+    - set +e # Disable exit on error
+    - helm delete ${PROJECT_NAME}-${VERSION} -n ${NAMESPACE}
+    - |
+      STATUS="$(helm list -n ${NAMESPACE} | grep ${PROJECT_NAME}-${VERSION} | head -n 1 | awk '{print $8}')"        
+      echo "STATUS => ${STATUS}"
+    - set -e
+    - |
+      if [[ $STATUS == "deployed" ]]; then
+        echo "deployed......."
+        echo "Se actualiza el chart"
+        echo "helm upgrade ${PROJECT_NAME}-${VERSION} ./${PROJECT_NAME}/ --namespace ${NAMESPACE} --no-hooks"
+        helmExecution="$(helm upgrade ${PROJECT_NAME}-${VERSION} ./${PROJECT_NAME}/ --namespace ${NAMESPACE} --no-hooks)"
+      elif [[ $STATUS == "failed" ]]; then
+        echo "failed......."
+        echo "helm delete ${PROJECT_NAME}-${VERSION} -n ${NAMESPACE}"
+        helmExecution="$(helm delete ${PROJECT_NAME}-${VERSION} -n ${NAMESPACE})"
+        echo "Instalando chart"
+        echo "helm install ${PROJECT_NAME}-${VERSION} ./${PROJECT_NAME}/ --namespace ${NAMESPACE} --no-hooks"
+        helmExecution="$(helm install ${PROJECT_NAME}-${VERSION} ./${PROJECT_NAME}/ --namespace ${NAMESPACE} --no-hooks)"
+      else
+        echo "install......."
+        echo "helm install ${PROJECT_NAME}-${VERSION} ./${PROJECT_NAME}/ --namespace ${NAMESPACE} --no-hooks"
+        helmExecution="$(helm install ${PROJECT_NAME}-${VERSION} ./${PROJECT_NAME}/ --namespace ${NAMESPACE} --no-hooks)"
+      fi       
+    - echo "......................................................"
+    - HELM_FILE_LOG="helm_${PROJECT_NAME}-Pipeline-${CI_PIPELINE_ID}-${CI_COMMIT_SHA:0:8}.txt"
+    - echo "$helmExecution" >> logs/${HELM_FILE_LOG}
+    - echo "......................................................"
+    #- echo "helm list --all-namespaces | grep ${NAMESPACE}"
+    - helm list --all-namespaces  | grep ${PROJECT_NAME}
+    #- echo "......................................................"
+    #- helm list -n ${NAMESPACE} | grep ${PROJECT_NAME}
+    - echo "......................................................"      
+    # SE COPIA EL ARCHIVO LOG EN LA RUTA DEL RUNNER
+    - cp logs/${HELM_FILE_LOG} /home/gitlab-runner/logs/desa/helm/${HELM_FILE_LOG}           
+  artifacts:
+    name: "helm_${PROJECT_NAME}-${CI_PIPELINE_ID}-${CI_COMMIT_SHA:0:8}"
+    when: always
+    paths:
+      - logs/       
+# Fin CI

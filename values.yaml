@@ -1,0 +1,58 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+# version: @version_
+namespace: @namespace_
+replicaCount: 0
+revisionHistoryLimit: 0
+image:
+  repository: us-west2-docker.pkg.dev/preprod/desa/cloud-sdk-script
+  tag: v1.0.0
+  pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 40m
+      memory: 300Mi
+  readinessProbe: {}
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 5
+ingress:
+  enabled: false
+service:
+  name: node
+  type: ClusterIP
+  servicePort: 3000
+  ingressPath: /
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    cpu:
+      targetAverageUtilization: 70
+    memory:
+      targetAverageUtilization: 70
+services:
+base:
+  enabled: false
+  replicaCount: 1
+  image:
+    tag: v0.9.9
+  weight: 100
+istio:
+  enabled: false
+  weight: 100
+configmap:
+  LOG_LEVEL: debug
+  PORT: 3000
+  NAMEPOD: ms-go-web-server
+  NAMESPACE: desa
+  MINSESION: 0
+  MAXSESION: 4
+  MINREPLICA: 1
+  TOTALSESION: 0

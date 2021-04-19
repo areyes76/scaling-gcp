@@ -1,0 +1,29 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/rewrite-target: {{ .Values.service.ingressPath }}
+  generation: 1
+  name: "{{ .Chart.Name }}-ingress"
+  namespace: {{ .Values.namespace }}
+spec:
+  {{- if $.Values.certificado}}
+  tls:
+  - hosts:
+    - {{ .Values.certificado.host}}
+    secretName: {{ .Values.certificado.secretName}}
+  {{- end}}
+  rules:
+  {{- if $.Values.certificado}}
+  - host: {{ .Values.certificado.host}}
+    http:
+  {{- else}}
+  - http:
+  {{- end}}
+      paths:
+      - backend:
+          serviceName: "{{ .Chart.Name }}-service"
+          servicePort: {{ .Values.service.servicePort }}
+        path: {{ .Values.service.ingressPath }}
+{{- end }}
